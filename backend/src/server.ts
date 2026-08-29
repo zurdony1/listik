@@ -22,8 +22,11 @@ import {
 } from "./brain/ProductIndex";
 
 /*
- * Variables de entorno
+ * ==========================================
+ * VARIABLES DE ENTORNO
+ * ==========================================
  */
+
 dotenv.config();
 
 const app = express();
@@ -33,14 +36,93 @@ const PORT =
     process.env.PORT,
   ) || 3001;
 
-app.listen(
-  PORT,
-  "0.0.0.0",
-  () => {
-    console.log(
-      `🚀 Listik Backend funcionando en puerto ${PORT}`,
-    );
-  },
+/*
+ * ==========================================
+ * CORS
+ * ==========================================
+ *
+ * IMPORTANTE:
+ *
+ * Este middleware debe estar ANTES
+ * de todas las rutas.
+ *
+ * Permite:
+ *
+ * - Frontend local
+ * - Frontend de Vercel
+ */
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://listik-beta.vercel.app",
+];
+
+app.use(
+  cors({
+    origin: (
+      origin,
+      callback,
+    ) => {
+      /*
+       * Permitir peticiones sin origin:
+       *
+       * Postman
+       * curl
+       * servidor a servidor
+       */
+      if (
+        !origin
+      ) {
+        callback(
+          null,
+          true,
+        );
+
+        return;
+      }
+
+      if (
+        allowedOrigins.includes(
+          origin,
+        )
+      ) {
+        callback(
+          null,
+          true,
+        );
+
+        return;
+      }
+
+      console.warn(
+        "⚠️ ORIGEN BLOQUEADO POR CORS:",
+        origin,
+      );
+
+      callback(
+        new Error(
+          `Origen no permitido por CORS: ${origin}`,
+        ),
+      );
+    },
+
+    credentials:
+      true,
+
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "OPTIONS",
+    ],
+
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+    ],
+  }),
 );
 
 /*
@@ -48,17 +130,63 @@ app.listen(
  * JSON
  * ==========================================
  *
- * express.json() debe estar antes
- * de las rutas que utilizan request.body.
+ * Debe estar antes de las rutas
+ * que utilizan request.body.
+ */
+
+app.use(
+  express.json(),
+);
+
+/*
+ * ==========================================
+ * RUTA PRINCIPAL
+ * ==========================================
+ */
+
+app.get(
+  "/",
+  (
+    _request,
+    response,
+  ) => {
+    response.json({
+      message:
+        "Listik Backend funcionando",
+    });
+  },
+);
+
+/*
+ * ==========================================
+ * HEALTH CHECK
+ * ==========================================
+ */
+
+app.get(
+  "/api/health",
+  (
+    _request,
+    response,
+  ) => {
+    response.json({
+      ok: true,
+
+      message:
+        "Listik API funcionando",
+    });
+  },
+);
+
+/*
+ * ==========================================
+ * STORE BRANCHES
+ * ==========================================
  */
 
 app.use(
   "/api/store-branches",
   storeBranchRoutes,
-);
-
-app.use(
-  express.json(),
 );
 
 /*
@@ -85,12 +213,19 @@ app.use(
 
 /*
  * ==========================================
+ * PROMOCIONES ADMIN
+ * ==========================================
+ */
+
+app.use(
+  "/api/admin/promotions",
+  adminPromotionRoutes,
+);
+
+/*
+ * ==========================================
  * CANASTA BÁSICA
  * ==========================================
- *
- * Calcula los 24 productos de primera
- * necesidad usando los precios disponibles
- * en el municipio y estado seleccionados.
  */
 
 app.use(
@@ -100,48 +235,8 @@ app.use(
 
 /*
  * ==========================================
- * RUTA PRINCIPAL
+ * TICKETS
  * ==========================================
- */
-
-app.get(
-  "/",
-  (_request, response) => {
-    response.json({
-      message:
-        "Listik Backend funcionando",
-    });
-  },
-);
-
-/*
- * ==========================================
- * HEALTH CHECK
- * ==========================================
- */
-
-app.get(
-  "/api/health",
-  (_request, response) => {
-    response.json({
-      ok: true,
-
-      message:
-        "Listik API funcionando",
-    });
-  },
-);
-
-/*
- * ==========================================
- * RUTAS DE LA API
- * ==========================================
- */
-
-/*
- * Tickets
- *
- * OCR + análisis del ticket.
  */
 
 app.use(
@@ -149,16 +244,10 @@ app.use(
   ticketRoutes,
 );
 
-app.use(
-  "/api/admin/promotions",
-  adminPromotionRoutes,
-);
-
 /*
- * Listik Brain
- *
- * Identificación inteligente
- * de productos.
+ * ==========================================
+ * LISTIK BRAIN
+ * ==========================================
  */
 
 app.use(
@@ -167,10 +256,9 @@ app.use(
 );
 
 /*
- * Brain Queue / Learning
- *
- * Productos pendientes,
- * aprobaciones y rechazos.
+ * ==========================================
+ * LEARNING
+ * ==========================================
  */
 
 app.use(
@@ -179,15 +267,9 @@ app.use(
 );
 
 /*
- * Smart Suggestions
- *
- * Prioridad:
- *
- * Brain Memory
- * ↓
- * Catálogo
- * ↓
- * Reglas
+ * ==========================================
+ * SUGGESTIONS
+ * ==========================================
  */
 
 app.use(
@@ -196,10 +278,9 @@ app.use(
 );
 
 /*
- * Ticket Prices
- *
- * Guarda precios confirmados
- * provenientes de tickets.
+ * ==========================================
+ * TICKET PRICES
+ * ==========================================
  */
 
 app.use(
@@ -211,11 +292,6 @@ app.use(
  * ==========================================
  * CATÁLOGO
  * ==========================================
- */
-
-/*
- * Obtener productos
- * disponibles en el catálogo.
  */
 
 app.get(
@@ -236,14 +312,18 @@ app.get(
 
         products,
       });
-    } catch (error) {
+    } catch (
+      error
+    ) {
       console.error(
-        "Error al consultar productos:",
+        "❌ Error al consultar productos:",
         error,
       );
 
       response
-        .status(500)
+        .status(
+          500,
+        )
         .json({
           ok: false,
 
@@ -262,12 +342,6 @@ app.get(
  * ==========================================
  */
 
-/*
- * Cargar catálogo en memoria
- * para que Listik Brain pueda
- * hacer búsquedas rápidamente.
- */
-
 async function initializeCatalog() {
   try {
     const products =
@@ -284,7 +358,9 @@ async function initializeCatalog() {
     console.log(
       `✅ Catálogo inicializado (${productIndex.size()} productos)`,
     );
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
       "❌ Error cargando catálogo:",
       error,
@@ -296,17 +372,24 @@ async function initializeCatalog() {
  * ==========================================
  * INICIAR SERVIDOR
  * ==========================================
+ *
+ * SOLO UN app.listen()
  */
 
 app.listen(
   PORT,
+  "0.0.0.0",
   async () => {
     console.log(
-      `🚀 Servidor iniciado en http://localhost:${PORT}`,
+      `🚀 Listik Backend funcionando en puerto ${PORT}`,
     );
 
     console.log(
-      `🧺 Canasta Básica disponible en http://localhost:${PORT}/api/basic-basket`,
+      `🩺 Health check: http://localhost:${PORT}/api/health`,
+    );
+
+    console.log(
+      `🧺 Canasta Básica: http://localhost:${PORT}/api/basic-basket`,
     );
 
     await initializeCatalog();

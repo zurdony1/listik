@@ -731,6 +731,57 @@ export function useShoppingList() {
                     prices =
                       response.data.prices ??
                       [];
+
+                      if (
+  product.name
+    .toLowerCase()
+    .includes("refresco")
+) {
+  console.log(
+    "🥤 DEBUG REFRESCO:",
+    {
+      productId:
+        product.id,
+
+      productName:
+        product.name,
+
+      savedPresentationId:
+        savedItem.presentationId,
+
+      presentation:
+        presentation
+          ? {
+              id:
+                presentation.id,
+
+              name:
+                presentation.presentationName,
+            }
+          : null,
+
+      pricesReceived:
+        response.data.prices.length,
+
+      prices:
+        response.data.prices.map(
+          (price) => ({
+            price:
+              price.price,
+
+            store:
+              price.storeName,
+
+            branch:
+              price.branch,
+
+            storeBranchId:
+              price.storeBranchId,
+          }),
+        ),
+    },
+  );
+}
                   } catch (
                     priceError
                   ) {

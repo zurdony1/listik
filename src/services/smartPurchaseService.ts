@@ -15,6 +15,12 @@ import type {
   SmartTransportMode,
 } from "../types/SmartPurchase";
 
+/*
+ * ==========================================
+ * SUCURSAL
+ * ==========================================
+ */
+
 interface BranchRow {
   id: string;
 
@@ -36,6 +42,12 @@ interface BranchRow {
     | string
     | null;
 }
+
+/*
+ * ==========================================
+ * OPCIÓN DE PRECIO
+ * ==========================================
+ */
 
 interface PriceOption {
   itemKey: string;
@@ -67,12 +79,24 @@ interface PriceOption {
   lineTotal: number;
 }
 
+/*
+ * ==========================================
+ * CLAVE PRODUCTO + PRESENTACIÓN
+ * ==========================================
+ */
+
 function itemKey(
   item:
     ShoppingListItem,
 ) {
   return `${item.product.id}::${item.presentationId ?? "no-presentation"}`;
 }
+
+/*
+ * ==========================================
+ * CONVERTIR A NÚMERO
+ * ==========================================
+ */
 
 function toNumber(
   value:
@@ -92,6 +116,12 @@ function toNumber(
     : null;
 }
 
+/*
+ * ==========================================
+ * GRADOS → RADIANES
+ * ==========================================
+ */
+
 function toRadians(
   degrees:
     number,
@@ -102,6 +132,15 @@ function toRadians(
   ) /
     180;
 }
+
+/*
+ * ==========================================
+ * DISTANCIA HAVERSINE
+ * ==========================================
+ *
+ * Calcula la distancia aproximada
+ * entre dos coordenadas.
+ */
 
 function haversineKm(
   lat1: number,
@@ -115,19 +154,19 @@ function haversineKm(
   const deltaLat =
     toRadians(
       lat2 -
-        lat1,
+      lat1,
     );
 
   const deltaLng =
     toRadians(
       lng2 -
-        lng1,
+      lng1,
     );
 
   const a =
     Math.sin(
       deltaLat /
-        2,
+      2,
     ) **
       2 +
     Math.cos(
@@ -142,7 +181,7 @@ function haversineKm(
       ) *
       Math.sin(
         deltaLng /
-          2,
+        2,
       ) **
         2;
 
@@ -154,7 +193,7 @@ function haversineKm(
       ),
       Math.sqrt(
         1 -
-          a,
+        a,
       ),
     );
 
@@ -163,6 +202,12 @@ function haversineKm(
     c
   );
 }
+
+/*
+ * ==========================================
+ * COSTO APROXIMADO POR KM
+ * ==========================================
+ */
 
 function estimateCostPerKm(
   mode:
@@ -200,8 +245,30 @@ function estimateCostPerKm(
     );
   }
 
+  /*
+   * Bici y caminando:
+   * por ahora no asignamos costo
+   * monetario por kilómetro.
+   */
+
   return 0;
 }
+
+/*
+ * ==========================================
+ * DISTANCIA DE RUTA APROXIMADA
+ * ==========================================
+ *
+ * Estrategia greedy:
+ *
+ * usuario
+ * ↓
+ * tienda más cercana
+ * ↓
+ * siguiente tienda más cercana
+ * ↓
+ * regreso al punto inicial
+ */
 
 function routeDistanceGreedy(
   userLat:
@@ -243,9 +310,10 @@ function routeDistanceGreedy(
       Number.POSITIVE_INFINITY;
 
     for (
-      let index = 0;
+      let index =
+        0;
       index <
-      remaining.length;
+        remaining.length;
       index++
     ) {
       const candidate =
@@ -290,8 +358,10 @@ function routeDistanceGreedy(
   }
 
   /*
-   * Regreso aproximado al punto inicial.
+   * Regreso aproximado
+   * al punto inicial.
    */
+
   total +=
     haversineKm(
       currentLat,
@@ -302,6 +372,15 @@ function routeDistanceGreedy(
 
   return total;
 }
+
+/*
+ * ==========================================
+ * COMBINACIONES
+ * ==========================================
+ *
+ * Genera combinaciones desde
+ * 1 tienda hasta maxSize.
+ */
 
 function combinations<T>(
   values:
@@ -341,7 +420,7 @@ function combinations<T>(
       let index =
         start;
       index <
-      values.length;
+        values.length;
       index++
     ) {
       current.push(
@@ -350,7 +429,7 @@ function combinations<T>(
 
       visit(
         index +
-          1,
+        1,
         current,
       );
 
@@ -365,6 +444,12 @@ function combinations<T>(
 
   return result;
 }
+
+/*
+ * ==========================================
+ * CARGAR SUCURSALES
+ * ==========================================
+ */
 
 async function loadBranches(
   branchIds:
@@ -411,6 +496,12 @@ async function loadBranches(
   ) as BranchRow[];
 }
 
+/*
+ * ==========================================
+ * CONSTRUIR PLAN
+ * ==========================================
+ */
+
 function createPlan(
   type:
     SmartPurchasePlan["type"],
@@ -447,6 +538,13 @@ function createPlan(
 
   let productsTotal =
     0;
+
+  /*
+   * ========================================
+   * ELEGIR PRECIO MÁS BAJO
+   * ENTRE LAS TIENDAS SELECCIONADAS
+   * ========================================
+   */
 
   for (
     const [
@@ -548,6 +646,12 @@ function createPlan(
     return null;
   }
 
+  /*
+   * ========================================
+   * SUCURSALES REALMENTE UTILIZADAS
+   * ========================================
+   */
+
   const usedBranchIds =
     [
       ...new Set(
@@ -587,6 +691,12 @@ function createPlan(
     return null;
   }
 
+  /*
+   * ========================================
+   * TRASLADO
+   * ========================================
+   */
+
   const travelDistanceKm =
     routeDistanceGreedy(
       settings.userLat,
@@ -603,11 +713,23 @@ function createPlan(
       settings.motoKmPerLiter,
     );
 
+  /*
+   * ========================================
+   * COBERTURA
+   * ========================================
+   */
+
   const coveredItems =
     assignments.length;
 
   const totalItems =
     itemMap.size;
+
+  /*
+   * ========================================
+   * RESULTADO
+   * ========================================
+   */
 
   return {
     type,
@@ -665,20 +787,25 @@ function createPlan(
       stores.length,
 
     stores:
-      stores
-        .sort(
-          (
-            a,
-            b,
-          ) =>
-            a.distanceFromUserKm -
-            b.distanceFromUserKm,
-        ),
+      stores.sort(
+        (
+          a,
+          b,
+        ) =>
+          a.distanceFromUserKm -
+          b.distanceFromUserKm,
+      ),
 
     itemAssignments:
       assignments,
   };
 }
+
+/*
+ * ==========================================
+ * OPTIMIZAR LISTA DE COMPRAS
+ * ==========================================
+ */
 
 export async function optimizeShoppingList(
   items:
@@ -688,6 +815,12 @@ export async function optimizeShoppingList(
 ): Promise<
   SmartPurchaseResult
 > {
+  /*
+   * ========================================
+   * ARTÍCULOS ACTIVOS
+   * ========================================
+   */
+
   const activeItems =
     items.filter(
       (
@@ -697,6 +830,12 @@ export async function optimizeShoppingList(
         item.quantity >
           0,
     );
+
+  /*
+   * ========================================
+   * LISTA VACÍA
+   * ========================================
+   */
 
   if (
     activeItems.length ===
@@ -732,8 +871,17 @@ export async function optimizeShoppingList(
 
       distanceNote:
         "La distancia es aproximada.",
+
+      unavailableItems:
+        [],
     };
   }
+
+  /*
+   * ========================================
+   * MAPAS
+   * ========================================
+   */
 
   const itemMap =
     new Map<
@@ -751,6 +899,12 @@ export async function optimizeShoppingList(
       string,
       PriceOption[]
     >();
+
+  /*
+   * ========================================
+   * CONSTRUIR OPCIONES DE PRECIOS
+   * ========================================
+   */
 
   for (
     const item
@@ -774,6 +928,12 @@ export async function optimizeShoppingList(
       const price
       of item.prices
     ) {
+      /*
+       * Para Compra Inteligente
+       * necesitamos conocer la sucursal
+       * exacta.
+       */
+
       if (
         !price.storeBranchId
       ) {
@@ -813,7 +973,8 @@ export async function optimizeShoppingList(
           item.product.name,
 
         presentationName:
-          item.presentation?.presentationName ??
+          item.presentation
+            ?.presentationName ??
           null,
 
         quantity:
@@ -846,12 +1007,85 @@ export async function optimizeShoppingList(
     );
   }
 
+  /*
+   * ========================================
+   * PRODUCTOS SIN PRECIOS
+   * ========================================
+   *
+   * Estos productos siguen formando parte
+   * de la lista y de la cobertura total,
+   * pero no pueden asignarse a una tienda.
+   *
+   * La UI podrá explicar al usuario
+   * qué producto/presentación necesita
+   * cambiar.
+   */
+
+  const unavailableItems =
+    [
+      ...rawOptions.entries(),
+    ]
+      .filter(
+        (
+          [, options],
+        ) =>
+          options.length ===
+          0,
+      )
+      .map(
+        (
+          [key],
+        ) => {
+          const item =
+            itemMap.get(
+              key,
+            );
+
+          return {
+            itemKey:
+              key,
+
+            productId:
+              item?.product.id ??
+              "",
+
+            productName:
+              item?.product.name ??
+              "Producto",
+
+            presentationId:
+              item?.presentationId ??
+              null,
+
+            presentationName:
+              item?.presentation
+                ?.presentationName ??
+              null,
+
+            reason:
+              "no_prices" as const,
+          };
+        },
+      );
+
+  /*
+   * ========================================
+   * CARGAR COORDENADAS
+   * ========================================
+   */
+
   const branches =
     await loadBranches(
       [
         ...allBranchIds,
       ],
     );
+
+  /*
+   * ========================================
+   * MAPA DE SUCURSALES VÁLIDAS
+   * ========================================
+   */
 
   const branchMap =
     new Map<
@@ -873,6 +1107,11 @@ export async function optimizeShoppingList(
         branch.longitude,
       );
 
+    /*
+     * Sin coordenadas no podemos
+     * calcular traslado.
+     */
+
     if (
       latitude ===
         null ||
@@ -890,6 +1129,10 @@ export async function optimizeShoppingList(
         longitude,
       );
 
+    /*
+     * Fuera del radio elegido.
+     */
+
     if (
       distanceFromUserKm >
       settings.maxDistanceKm
@@ -898,9 +1141,10 @@ export async function optimizeShoppingList(
     }
 
     /*
-     * Tomamos el nombre/cadena del primer
-     * precio disponible de esta sucursal.
+     * Tomamos inicialmente datos
+     * de store_branches.
      */
+
     let storeId =
       String(
         branch.store_id ??
@@ -914,6 +1158,12 @@ export async function optimizeShoppingList(
     let branchName =
       branch.name ??
       "Sucursal";
+
+    /*
+     * Después recuperamos cadena
+     * comercial y nombre real desde
+     * una opción de precio.
+     */
 
     for (
       const options
@@ -971,9 +1221,11 @@ export async function optimizeShoppingList(
   }
 
   /*
-   * Dejamos únicamente opciones dentro
-   * del radio elegido.
+   * ========================================
+   * OPCIONES DENTRO DEL RADIO
+   * ========================================
    */
+
   const optionsByItem =
     new Map<
       string,
@@ -1000,12 +1252,19 @@ export async function optimizeShoppingList(
     );
   }
 
+  /*
+   * ========================================
+   * COBERTURA POR SUCURSAL
+   * ========================================
+   */
+
   const branchCoverage =
     new Map<
       string,
       {
         items:
           Set<string>;
+
         total:
           number;
       }
@@ -1050,10 +1309,18 @@ export async function optimizeShoppingList(
   }
 
   /*
-   * Nos quedamos con las 12 sucursales
-   * más útiles. Así probar combinaciones
-   * de 1, 2 o 3 tiendas sigue siendo rápido.
+   * ========================================
+   * SUCURSALES CANDIDATAS
+   * ========================================
+   *
+   * Nos quedamos con máximo 12.
+   *
+   * Prioridad:
+   *
+   * 1. Mayor cobertura
+   * 2. Menor total de productos
    */
+
   const candidateBranchIds =
     [
       ...branchCoverage.entries(),
@@ -1092,6 +1359,12 @@ export async function optimizeShoppingList(
           branchId,
       );
 
+  /*
+   * ========================================
+   * SIN SUCURSALES CANDIDATAS
+   * ========================================
+   */
+
   if (
     candidateBranchIds.length ===
     0
@@ -1126,8 +1399,19 @@ export async function optimizeShoppingList(
 
       distanceNote:
         "La distancia es aproximada en línea recta; todavía no representa la ruta real por calles.",
+
+      unavailableItems,
     };
   }
+
+  /*
+   * ========================================
+   * MEJOR COMPRA REAL
+   * ========================================
+   *
+   * Probamos todas las combinaciones
+   * permitidas por maxStores.
+   */
 
   const plans =
     combinations(
@@ -1163,9 +1447,8 @@ export async function optimizeShoppingList(
         ) => {
           /*
            * 1. Mayor cobertura.
-           * 2. Menor costo productos + traslado.
-           * 3. Menor número de tiendas.
            */
+
           if (
             b.coveredItems !==
             a.coveredItems
@@ -1175,6 +1458,11 @@ export async function optimizeShoppingList(
               a.coveredItems
             );
           }
+
+          /*
+           * 2. Menor costo:
+           * productos + traslado.
+           */
 
           if (
             a.estimatedTotal !==
@@ -1186,6 +1474,10 @@ export async function optimizeShoppingList(
             );
           }
 
+          /*
+           * 3. Menos tiendas.
+           */
+
           return (
             a.storesCount -
             b.storesCount
@@ -1196,6 +1488,12 @@ export async function optimizeShoppingList(
   const recommended =
     plans[0] ??
     null;
+
+  /*
+   * ========================================
+   * UNA SOLA TIENDA
+   * ========================================
+   */
 
   const singleStore =
     candidateBranchIds
@@ -1228,6 +1526,10 @@ export async function optimizeShoppingList(
           a,
           b,
         ) => {
+          /*
+           * Mayor cobertura primero.
+           */
+
           if (
             b.coveredItems !==
             a.coveredItems
@@ -1238,6 +1540,10 @@ export async function optimizeShoppingList(
             );
           }
 
+          /*
+           * Después menor costo.
+           */
+
           return (
             a.estimatedTotal -
             b.estimatedTotal
@@ -1247,11 +1553,15 @@ export async function optimizeShoppingList(
     null;
 
   /*
-   * Precio mínimo:
-   * cada artículo en su sucursal más barata
-   * dentro del radio, aunque implique más
-   * establecimientos.
+   * ========================================
+   * PRECIO MÍNIMO
+   * ========================================
+   *
+   * Elegimos el precio más barato
+   * de cada artículo dentro del radio,
+   * aunque implique visitar más tiendas.
    */
+
   const minimumBranches =
     new Set<
       string
@@ -1298,6 +1608,15 @@ export async function optimizeShoppingList(
         )
       : null;
 
+  /*
+   * ========================================
+   * AHORRO VS UNA SOLA TIENDA
+   * ========================================
+   *
+   * Solo comparamos si ambos planes
+   * cubren la misma cantidad de artículos.
+   */
+
   const savingsVsSingle =
     recommended &&
     singleStore &&
@@ -1312,6 +1631,12 @@ export async function optimizeShoppingList(
           ),
         )
       : null;
+
+  /*
+   * ========================================
+   * RESULTADO FINAL
+   * ========================================
+   */
 
   return {
     available:
@@ -1343,5 +1668,7 @@ export async function optimizeShoppingList(
 
     distanceNote:
       "La distancia es aproximada en línea recta. En una siguiente versión podemos calcular rutas reales por calles.",
+
+    unavailableItems,
   };
 }

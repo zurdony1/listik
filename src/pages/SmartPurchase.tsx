@@ -999,6 +999,63 @@ export default function SmartPurchase() {
 
             {result?.available && (
               <>
+                {result.unavailableItems.length > 0 && (
+                  <section className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle
+                        size={22}
+                        className="mt-0.5 shrink-0 text-amber-600"
+                      />
+
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-black uppercase tracking-widest text-amber-700">
+                          Producto{result.unavailableItems.length === 1 ? "" : "s"} sin precio disponible
+                        </p>
+
+                        <p className="mt-2 text-sm leading-6 text-amber-900">
+                          No encontramos precios para la presentación seleccionada de {result.unavailableItems.length === 1 ? "este producto" : "estos productos"} en tu zona. Listik seguirá calculando la mejor compra con el resto de tu lista.
+                        </p>
+
+                        <div className="mt-4 space-y-3">
+                          {result.unavailableItems.map(
+                            (item) => (
+                              <div
+                                key={item.itemKey}
+                                className="rounded-2xl border border-amber-200 bg-white p-4"
+                              >
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                  <div>
+                                    <p className="font-black text-slate-950">
+                                      {item.productName}
+                                    </p>
+
+                                    {item.presentationName && (
+                                      <p className="mt-1 text-sm font-semibold text-slate-600">
+                                        {item.presentationName}
+                                      </p>
+                                    )}
+
+                                    <p className="mt-2 text-xs font-bold text-amber-700">
+                                      Sin precios disponibles para esta presentación.
+                                    </p>
+                                  </div>
+
+                                  <Link
+                                   to="/app"
+                                    className="inline-flex shrink-0 items-center justify-center rounded-xl border border-amber-300 bg-amber-100 px-4 py-2 text-sm font-black text-amber-800 transition hover:bg-amber-200"
+                                          >
+                                      Buscar alternativa
+                                          </Link>
+                                </div>
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
                 <section className="mt-7 grid gap-4 lg:grid-cols-3">
                   <PlanCard
                     featured
@@ -1076,7 +1133,10 @@ export default function SmartPurchase() {
                       </p>
                     ) : (
                       <p className="mt-3 text-sm font-black text-amber-700">
-                        ⚠️ Esta opción todavía deja productos pendientes.
+                        ⚠️ Esta opción todavía deja productos pendientes
+                        {result.unavailableItems.length > 0
+                          ? " porque hay presentaciones sin precios disponibles en tu zona."
+                          : "."}
                       </p>
                     )}
                   </article>
