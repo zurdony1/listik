@@ -426,8 +426,7 @@ function Home() {
         className="min-h-screen"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.88), rgba(255,255,255,0.88)), url('/public/images/fondo-frutas.jpg')",
-
+          "linear-gradient(rgba(255,255,255,0.88), rgba(255,255,255,0.88)), url('/images/fondo-frutas.jpg')",
           backgroundRepeat:
             "repeat",
 
