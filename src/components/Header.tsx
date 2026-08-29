@@ -521,7 +521,7 @@ export default function Header() {
 
             <div className="absolute inset-x-10 bottom-4 top-0 overflow-hidden rounded-[36px] border border-white/20 bg-white shadow-2xl">
               <img
-                src="/public/images/images.jpg"
+                src="/images/images.jpg"
                 alt="Supermercado con frutas, verduras y productos"
                 className="h-full w-full object-cover"
               />
