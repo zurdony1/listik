@@ -505,105 +505,170 @@ export function AuthProvider({
        */
 
       async function initializeAuth() {
-        try {
-          const {
-            data,
-            error,
-          } =
-            await supabase.auth.getSession();
+  try {
+    /*
+     * ========================================
+     * VALIDAR USUARIO CONTRA SUPABASE
+     * ========================================
+     *
+     * getUser() valida el token contra
+     * Supabase Auth.
+     *
+     * Esto evita quedarnos con una sesión
+     * vieja de un usuario que ya fue borrado.
+     */
 
-          if (
-            error
-          ) {
-            console.error(
-              "Error obteniendo sesión:",
-              error,
-            );
-          }
+    const {
+      data,
+      error,
+    } =
+      await supabase.auth.getUser();
 
-          const currentUser =
-            data.session
-              ?.user ??
-            null;
+    const currentUser =
+      data.user ??
+      null;
 
-          if (
-            !mounted
-          ) {
-            return;
-          }
+    /*
+     * ========================================
+     * USUARIO YA NO EXISTE / SESIÓN INVÁLIDA
+     * ========================================
+     */
 
-          setUser(
-            currentUser,
-          );
-
-          /*
-           * ======================================
-           * USUARIO CON SESIÓN
-           * ======================================
-           */
-
-          if (
-            currentUser
-          ) {
-            await Promise.all([
-              loadProfile(
-                currentUser.id,
-              ),
-
-              loadAdminStatus(
-                currentUser.id,
-              ),
-            ]);
-          }
-
-          /*
-           * ======================================
-           * SIN SESIÓN
-           * ======================================
-           */
-
-          else {
-            setProfile(
-              null,
-            );
-
-            setIsAdmin(
-              false,
-            );
-          }
-        } catch (
-          error
-        ) {
-          console.error(
-            "Error inicializando autenticación:",
-            error,
-          );
-
-          if (
-            mounted
-          ) {
-            setUser(
-              null,
-            );
-
-            setProfile(
-              null,
-            );
-
-            setIsAdmin(
-              false,
-            );
-          }
-        } finally {
-          if (
-            mounted
-          ) {
-            setLoading(
-              false,
-            );
-          }
-        }
+    if (
+      error ||
+      !currentUser
+    ) {
+      if (
+        error
+      ) {
+        console.warn(
+          "⚠️ Sesión inválida o usuario eliminado:",
+          error.message,
+        );
       }
+
+      /*
+       * Limpiamos la sesión vieja
+       * almacenada en el navegador.
+       */
+
+      await supabase.auth.signOut({
+        scope:
+          "local",
+      });
+
+      if (
+        !mounted
+      ) {
+        return;
+      }
+
+      setUser(
+        null,
+      );
+
+      setProfile(
+        null,
+      );
+
+      setIsAdmin(
+        false,
+      );
+
+      setProfileLoading(
+        false,
+      );
+
+      setAdminLoading(
+        false,
+      );
+
+      return;
+    }
+
+    if (
+      !mounted
+    ) {
+      return;
+    }
+
+    /*
+     * ========================================
+     * USUARIO VÁLIDO
+     * ========================================
+     */
+
+    setUser(
+      currentUser,
+    );
+
+    await Promise.all([
+      loadProfile(
+        currentUser.id,
+      ),
+
+      loadAdminStatus(
+        currentUser.id,
+      ),
+    ]);
+  } catch (
+    error
+  ) {
+    console.error(
+      "Error inicializando autenticación:",
+      error,
+    );
+
+    /*
+     * Ante una sesión dañada,
+     * dejamos Listik en estado seguro.
+     */
+
+    try {
+      await supabase.auth.signOut({
+        scope:
+          "local",
+      });
+    } catch {
+      /*
+       * No bloqueamos la app si
+       * limpiar la sesión también falla.
+       */
+    }
+
+    if (
+      mounted
+    ) {
+      setUser(
+        null,
+      );
+
+      setProfile(
+        null,
+      );
+
+      setIsAdmin(
+        false,
+      );
+
+      setProfileLoading(
+        false,
+      );
+
+      setAdminLoading(
+        false,
+      );
+    }
+  } finally {
+    if (
+      mounted
+    ) {
+      setLoading(
+        false,
+      );
+    }
+  }
+}
 
       void initializeAuth();
 
