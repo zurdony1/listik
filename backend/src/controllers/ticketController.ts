@@ -8,6 +8,10 @@ import {
 } from "../ticketReader/LocalTicketReader";
 
 import {
+  analyzeTicketWithVision,
+} from "../ai/ticketVision";
+
+import {
   processDetectedTicket,
 } from "../services/ticketProcessingService";
 
@@ -53,18 +57,23 @@ export async function analyzeTicket(
     });
 
     /*
-     * ============================
+     * ==========================================
      * 1. LECTOR LOCAL
-     * ============================
+     * ==========================================
      *
-     * Imagen
-     * ↓
+     * Primero intentamos usar:
+     *
      * Sharp
      * ↓
      * Tesseract
      * ↓
      * Parser Listik
+     *
+     * Esto nos ayuda a reducir
+     * consumo de IA cuando el
+     * ticket puede resolverse localmente.
      */
+
     const detectedTicket =
       await localTicketReader.analyze(
         ticketFile.buffer,
@@ -77,51 +86,60 @@ export async function analyzeTicket(
     );
 
     /*
-     * Si OCR no encontró
-     * ningún producto,
-     * devolvemos también
-     * rawText para depuración.
+     * ==========================================
+     * 2. DECIDIR ORIGEN DE EXTRACCIÓN
+     * ==========================================
      */
-    if (
-      detectedTicket.items.length ===
-      0
-    ) {
-      response
-        .status(422)
-        .json({
-          ok: false,
 
-          error:
-            "El OCR leyó el ticket, pero no pudo identificar renglones de producto.",
+    let extractedTicket: {
+      store: string;
 
-          rawText:
-            detectedTicket.rawText ??
-            "",
-        });
+      branch:
+        | string
+        | null
+        | undefined;
 
-      return;
-    }
+      purchaseDate:
+        | string
+        | null
+        | undefined;
+
+      total: number;
+
+      items: Array<{
+        rawCode?:
+          | string
+          | null
+          | undefined;
+
+        rawName: string;
+
+        quantity: number;
+
+        unitPrice: number;
+
+        totalPrice: number;
+      }>;
+
+      source:
+        | "local"
+        | "vision";
+    };
 
     /*
-     * ============================
-     * 2. LISTIK BRAIN
-     * ============================
-     *
-     * El lector NO decide
-     * qué producto es.
-     *
-     * Solo entrega:
-     *
-     * rawCode
-     * rawName
-     * quantity
-     * unitPrice
-     * totalPrice
-     *
-     * Brain hace el resto.
+     * Si el lector local encontró
+     * productos, seguimos usando
+     * ese resultado.
      */
-    const analysis =
-      await processDetectedTicket({
+    if (
+      detectedTicket.items.length >
+      0
+    ) {
+      console.log(
+        "✅ Usando extracción local.",
+      );
+
+      extractedTicket = {
         store:
           detectedTicket.store,
 
@@ -135,10 +153,148 @@ export async function analyzeTicket(
           detectedTicket.total,
 
         items:
-          detectedTicket.items.map(
+          detectedTicket.items,
+
+        source:
+          "local",
+      };
+    } else {
+      /*
+       * ==========================================
+       * FALLBACK CON OPENAI VISION
+       * ==========================================
+       *
+       * El OCR sí pudo leer la imagen,
+       * pero nuestro parser no entendió
+       * el formato del supermercado.
+       *
+       * Mandamos LA FOTO ORIGINAL
+       * a OpenAI.
+       */
+
+      console.log("");
+      console.log(
+        "⚠️ El lector local no encontró productos.",
+      );
+
+      console.log(
+        "🤖 Activando OpenAI Vision...",
+      );
+
+      try {
+        const visionTicket =
+          await analyzeTicketWithVision({
+            image:
+              ticketFile.buffer,
+
+            mimeType:
+              ticketFile.mimetype,
+          });
+
+        console.log("");
+        console.log(
+          `👁️ Vision detectó ${visionTicket.items.length} productos.`,
+        );
+
+        if (
+          visionTicket.items.length ===
+          0
+        ) {
+          response
+            .status(422)
+            .json({
+              ok: false,
+
+              error:
+                "No se pudieron identificar productos en el ticket.",
+
+              rawText:
+                detectedTicket.rawText ??
+                "",
+            });
+
+          return;
+        }
+
+        extractedTicket = {
+          store:
+            visionTicket.store,
+
+          branch:
+            visionTicket.branch,
+
+          purchaseDate:
+            visionTicket.purchaseDate,
+
+          total:
+            visionTicket.total,
+
+          items:
+            visionTicket.items,
+
+          source:
+            "vision",
+        };
+      } catch (visionError) {
+        console.error(
+          "❌ Vision también falló:",
+          visionError,
+        );
+
+        response
+          .status(422)
+          .json({
+            ok: false,
+
+            error:
+              "El OCR leyó el ticket, pero no pudo identificar los productos y el lector con IA tampoco pudo procesarlo.",
+
+            rawText:
+              detectedTicket.rawText ??
+              "",
+
+            visionError:
+              visionError instanceof Error
+                ? visionError.message
+                : "Error desconocido en Vision.",
+          });
+
+        return;
+      }
+    }
+
+    /*
+     * ==========================================
+     * 3. LISTIK BRAIN
+     * ==========================================
+     *
+     * Brain recibe siempre el mismo
+     * formato sin importar si vino
+     * de Tesseract o de Vision.
+     */
+
+    const analysis =
+      await processDetectedTicket({
+        store:
+          extractedTicket.store,
+
+        branch:
+          extractedTicket.branch ??
+          undefined,
+
+        purchaseDate:
+          extractedTicket.purchaseDate ??
+          undefined,
+
+        total:
+          extractedTicket.total,
+
+        items:
+          extractedTicket.items.map(
             (item) => ({
               rawCode:
-                item.rawCode,
+                item.rawCode ??
+                undefined,
 
               rawName:
                 item.rawName,
@@ -161,6 +317,9 @@ export async function analyzeTicket(
     );
 
     console.log({
+      source:
+        extractedTicket.source,
+
       totalItems:
         analysis.items.length,
 
@@ -172,9 +331,9 @@ export async function analyzeTicket(
     });
 
     /*
-     * ============================
-     * 3. RESPUESTA
-     * ============================
+     * ==========================================
+     * 4. RESPUESTA
+     * ==========================================
      */
 
     response.json({
@@ -191,28 +350,26 @@ export async function analyzeTicket(
           ticketFile.mimetype,
       },
 
-      /*
-       * Nos sirve para saber
-       * cuántos renglones logró
-       * obtener OCR antes del Brain.
-       */
       extraction: {
+        source:
+          extractedTicket.source,
+
         detectedItems:
-          detectedTicket.items.length,
+          extractedTicket.items.length,
 
         store:
-          detectedTicket.store,
+          extractedTicket.store,
 
         branch:
-          detectedTicket.branch ??
+          extractedTicket.branch ??
           null,
 
         purchaseDate:
-          detectedTicket.purchaseDate ??
+          extractedTicket.purchaseDate ??
           null,
 
         total:
-          detectedTicket.total,
+          extractedTicket.total,
       },
 
       analysis,

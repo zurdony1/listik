@@ -362,9 +362,9 @@ export default function ShoppingTripSummaryPage() {
     0;
 
   const scannerUrl =
-    `/tickets?tripId=${encodeURIComponent(
-      data.id,
-    )}`;
+  `/escanear-ticket?tripId=${encodeURIComponent(
+    data.id,
+  )}`;
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -468,7 +468,7 @@ export default function ShoppingTripSummaryPage() {
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             <Link
-              to="/"
+              to="/app"
               className="rounded-xl bg-green-600 px-5 py-3 text-center font-black text-white"
             >
               Buscar productos

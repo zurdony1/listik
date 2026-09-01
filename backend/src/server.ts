@@ -8,6 +8,7 @@ import learningRoutes from "./routes/learningRoutes";
 import suggestionRoutes from "./routes/suggestionRoutes";
 import ticketPriceRoutes from "./routes/ticketPriceRoutes";
 import productPriceRoutes from "./routes/productPriceRoutes";
+import productCodeRoutes from "./routes/productCodeRoutes";
 import adminProfecoRouter from "./routes/adminProfeco";
 import basicBasketRouter from "./routes/basicBasket";
 import storeBranchRoutes from "./routes/storeBranchRoutes";
@@ -202,6 +203,26 @@ app.use(
 
 /*
  * ==========================================
+ * PRODUCT CODES
+ * ==========================================
+ *
+ * Permite registrar:
+ *
+ * supermercado + código
+ *        ↓
+ * producto + presentación
+ *
+ * Esto permitirá que Listik aprenda
+ * los códigos detectados en tickets.
+ */
+
+app.use(
+  "/api/product-codes",
+  productCodeRoutes,
+);
+
+/*
+ * ==========================================
  * PROFECO ADMIN
  * ==========================================
  */
@@ -390,6 +411,10 @@ app.listen(
 
     console.log(
       `🧺 Canasta Básica: http://localhost:${PORT}/api/basic-basket`,
+    );
+
+    console.log(
+      `🏷️ Product Codes: http://localhost:${PORT}/api/product-codes`,
     );
 
     await initializeCatalog();

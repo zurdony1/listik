@@ -41,6 +41,10 @@ import {
   saveBrainMemory,
 } from "../services/brainMemoryService";
 
+import {
+  saveProductCode,
+} from "../services/api/productCodeApi";
+
 import type {
   TicketAnalysis,
   TicketItem,
@@ -148,9 +152,25 @@ export default function TicketScannerPage() {
     analysis,
     setAnalysis,
   ] =
-    useState<
-      TicketAnalysis | null
-    >(null);
+    useState<TicketAnalysis | null>(() => {
+      try {
+        const saved = sessionStorage.getItem(
+          "listik_ticket_analysis",
+        );
+
+        if (!saved) {
+          return null;
+        }
+
+        return JSON.parse(saved) as TicketAnalysis;
+      } catch (error) {
+        console.warn(
+          "No se pudo recuperar el ticket guardado:",
+          error,
+        );
+        return null;
+      }
+    });
 
   const [
     loading,
@@ -684,6 +704,32 @@ export default function TicketScannerPage() {
 
   /*
    * ==========================================
+   * PERSISTIR TICKET ENTRE RECARGAS
+   * ==========================================
+   */
+
+  useEffect(() => {
+    try {
+      if (analysis) {
+        sessionStorage.setItem(
+          "listik_ticket_analysis",
+          JSON.stringify(analysis),
+        );
+      } else {
+        sessionStorage.removeItem(
+          "listik_ticket_analysis",
+        );
+      }
+    } catch (error) {
+      console.warn(
+        "No se pudo guardar el ticket temporalmente:",
+        error,
+      );
+    }
+  }, [analysis]);
+
+  /*
+   * ==========================================
    * ESTADÍSTICAS
    * ==========================================
    */
@@ -1090,6 +1136,64 @@ export default function TicketScannerPage() {
       accepted:
         true,
     });
+
+    /*
+     * ==========================================
+     * APRENDER CÓDIGO DEL PRODUCTO
+     * ==========================================
+     */
+
+    const normalizedRawCode =
+      item.rawCode?.trim();
+
+    if (
+      normalizedRawCode &&
+      /^\d{6,14}$/.test(
+        normalizedRawCode,
+      ) &&
+      productId &&
+      presentationId &&
+      analysis.store
+    ) {
+      try {
+        await saveProductCode({
+          productId,
+
+          presentationId,
+
+          storeName:
+            analysis.store,
+
+          code:
+            normalizedRawCode,
+        });
+
+        console.log(
+          "🧠 Código aprendido:",
+          {
+            store:
+              analysis.store,
+
+            code:
+              normalizedRawCode,
+
+            productId,
+
+            presentationId,
+          },
+        );
+      } catch (error) {
+        console.warn(
+          "⚠️ No se pudo aprender el código:",
+          {
+            code:
+              normalizedRawCode,
+
+            error,
+          },
+        );
+      }
+    }
   }
 
   /*
