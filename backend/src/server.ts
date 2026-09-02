@@ -56,6 +56,7 @@ const PORT =
 const allowedOrigins = [
   "http://localhost:5173",
   "https://listik-beta.vercel.app",
+  "https://listik.life",
 ];
 
 app.use(
